@@ -362,7 +362,8 @@ model LinkAttachment {
   description     String
   url             String
 
-  showAndTellEntryAttachment ShowAndTellEntryAttachment?
+  showAndTellEntryAttachment   ShowAndTellEntryAttachment?
+  customWishlistItemAttachment CustomWishlistItemAttachment?
 }
 
 model ShowAndTellEntry {
@@ -447,8 +448,9 @@ model ImageAttachment {
   url                 String @db.VarChar(200)
   fileStorageObjectId String @unique
 
-  fileStorageObject          FileStorageObject           @relation(fields: [fileStorageObjectId], references: [id], onDelete: Cascade)
-  showAndTellEntryAttachment ShowAndTellEntryAttachment?
+  fileStorageObject            FileStorageObject           @relation(fields: [fileStorageObjectId], references: [id], onDelete: Cascade)
+  showAndTellEntryAttachment   ShowAndTellEntryAttachment?
+  customWishlistItemAttachment CustomWishlistItemAttachment?
 }
 
 model TwitchChannel {
@@ -478,20 +480,23 @@ model RoundsCheck {
 }
 
 model Donation {
-  id               String    @id
-  provider         String
-  providerUniqueId String    @unique @db.VarChar(500)
-  amount           Int
-  donatedAt        DateTime?
-  receivedAt       DateTime
-  note             String?   @db.Text
-  donatedBy        Json
-  tags             Json
-  providerMetadata Json
+  id                   String    @id
+  provider             String
+  providerUniqueId     String    @unique @db.VarChar(500)
+  amount               Int
+  donatedAt            DateTime?
+  receivedAt           DateTime
+  note                 String?   @db.Text
+  donatedBy            Json
+  tags                 Json
+  providerMetadata     Json
+  customWishlistItemId String
 
-  pixels Pixel[]
+  pixels             Pixel[]
+  customWishlistItem CustomWishlistItem @relation(fields: [customWishlistItemId], references: [id])
 
   @@index([receivedAt(sort: Desc)], name: "Donation_recent")
+  @@index([customWishlistItemId], name: "CustomWishlistItem_itemId")
 }
 
 model Pixel {
@@ -510,4 +515,32 @@ model Pixel {
   @@unique([column, row, muralId], name: "Pixel_coordinate")
   @@index([donationId], name: "Pixel_donationId")
   @@index([muralId], name: "Pixel_muralId")
+}
+
+model CustomWishlistItem {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  completedAt DateTime
+  title       String
+  description String    @db.Text
+  goal        Decimal
+
+  donations   Donation[]
+  attachments CustomWishlistItemAttachment[]
+}
+
+model CustomWishlistItemAttachment {
+  id                String  @id @default(cuid())
+  itemId            String
+  order             Int     @default(0)
+  attachmentType    String
+  linkAttachmentId  String? @unique
+  imageAttachmentId String? @unique
+
+  item            CustomWishlistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  linkAttachment  LinkAttachment?    @relation(fields: [linkAttachmentId], references: [id], onDelete: Cascade)
+  imageAttachment ImageAttachment?   @relation(fields: [imageAttachmentId], references: [id], onDelete: Cascade)
+
+  @@index([itemId], name: "CustomWishlistItemAttachment_itemId")
 }
