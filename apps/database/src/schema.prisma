@@ -521,9 +521,9 @@ model CustomWishlistItem {
   id          String    @id @default(cuid())
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @default(now())
-  endsAt      DateTime
-  publishedAt DateTime
-  completedAt DateTime
+  endsAt      DateTime?
+  activatedAt DateTime?
+  completedAt DateTime?
   title       String
   description String    @db.Text
   goal        Decimal
@@ -531,7 +531,7 @@ model CustomWishlistItem {
   donations   Donation[]
   attachments CustomWishlistItemAttachment[]
 
-  @@index([publishedAt, updatedAt], name: "CustomWishlistItem_active")
+  @@index([activatedAt, updatedAt], name: "CustomWishlistItem_active")
   @@index([completedAt, updatedAt], name: "CustomWishlistItem_completed")
 }
 

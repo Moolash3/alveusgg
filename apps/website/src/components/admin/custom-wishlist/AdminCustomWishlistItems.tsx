@@ -1,7 +1,6 @@
 import type { inferRouterOutputs } from "@trpc/server";
 import { Fragment, useCallback } from "react";
 
-import type { MarkPostAsSeenMode } from "@/server/db/show-and-tell";
 import type { AppRouter } from "@/server/trpc/router/_app";
 
 import { trpc } from "@/utils/trpc";
@@ -13,65 +12,41 @@ import IconLoading from "@/icons/IconLoading";
 import { Panel } from "../Panel";
 
 type AdminCustomWishlistItemsPanelProps = {
-  filter: "pendingApproval" | "approved";
+  filter: "pending" | "active" | "completed";
 };
 
 type RouterOutput = inferRouterOutputs<AppRouter>;
-type Entry = RouterOutput["adminCustomWishlist"]["getItems"]["items"][number];
+type Item = RouterOutput["adminCustomWishlist"]["getItems"]["items"][number];
 
 export function AdminCustomWishlistItemsPanel({
   filter,
 }: AdminCustomWishlistItemsPanelProps) {
-  const entries = trpc.adminCustomWishlist.getItems.useInfiniteQuery(
+  const items = trpc.adminCustomWishlist.getItems.useInfiniteQuery(
     { filter },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
     },
   );
 
-  const deletePost = trpc.adminShowAndTell.delete.useMutation({
+  const deleteItem = trpc.adminCustomWishlist.delete.useMutation({
     onSettled: async () => {
-      await entries.refetch();
+      await items.refetch();
     },
   });
-  const handleDeletePost = useCallback(
-    (entry: Entry) => {
-      deletePost.mutate(entry.id);
+  const handleDeleteItem = useCallback(
+    (item: Item) => {
+      deleteItem.mutate(item.id);
     },
-    [deletePost],
+    [deleteItem],
   );
 
-  const markAsSeen = trpc.adminShowAndTell.markAsSeen.useMutation({
-    onSettled: async () => {
-      await entries.refetch();
-    },
-  });
-  const handleMarkAsSeen = useCallback(
-    (entry: Entry, mode?: MarkPostAsSeenMode) => {
-      markAsSeen.mutate({ id: entry.id, mode });
-    },
-    [markAsSeen],
-  );
-
-  const unmarkAsSeen = trpc.adminShowAndTell.unmarkAsSeen.useMutation({
-    onSettled: async () => {
-      await entries.refetch();
-    },
-  });
-  const handleUnmarkAsSeen = useCallback(
-    (entry: Entry) => {
-      unmarkAsSeen.mutate({ id: entry.id });
-    },
-    [unmarkAsSeen],
-  );
-
-  const canLoadMore = entries.hasNextPage && !entries.isFetchingNextPage;
+  const canLoadMore = items.hasNextPage && !items.isFetchingNextPage;
 
   return (
     <Panel>
-      {entries.isPending && <p>Loading …</p>}
-      {entries.status === "error" && <p>Error fetching entries!</p>}
-      {entries.data?.pages && entries.data.pages.length > 0 && (
+      {items.isPending && <p>Loading …</p>}
+      {items.status === "error" && <p>Error fetching items!</p>}
+      {items.data?.pages && items.data.pages.length > 0 && (
         <>
           <table className="w-full">
             <thead>
@@ -94,15 +69,13 @@ export function AdminCustomWishlistItemsPanel({
               </tr>
             </thead>
             <tbody>
-              {entries.data?.pages.map((page) => (
+              {items.data?.pages.map((page) => (
                 <Fragment key={page.nextCursor || "default"}>
-                  {page.items.map((entry) => (
-                    <AdminShowAndTellEntry
-                      key={entry.id}
-                      entry={entry}
-                      markSeen={handleMarkAsSeen}
-                      unmarkSeen={handleUnmarkAsSeen}
-                      deletePost={handleDeletePost}
+                  {page.items.map((item: Item) => (
+                    <AdminCustomWishlistItem
+                      key={item.id}
+                      entry={item}
+                      deleteItem={handleDeleteItem}
                     />
                   ))}
                 </Fragment>
@@ -112,8 +85,8 @@ export function AdminCustomWishlistItemsPanel({
 
           <div className="mt-5">
             {canLoadMore ? (
-              <Button onClick={() => entries.fetchNextPage()}>
-                {entries.isFetchingNextPage ? (
+              <Button onClick={() => items.fetchNextPage()}>
+                {items.isFetchingNextPage ? (
                   <>
                     <IconLoading size={20} /> Loading…
                   </>
@@ -123,7 +96,7 @@ export function AdminCustomWishlistItemsPanel({
               </Button>
             ) : (
               <p className="p-2 text-center italic">
-                {entries.isFetchingNextPage ? "Loading more …" : "- End -"}
+                {items.isFetchingNextPage ? "Loading more …" : "- End -"}
               </p>
             )}
           </div>

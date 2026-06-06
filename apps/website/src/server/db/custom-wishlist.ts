@@ -19,12 +19,10 @@ import { sanitizeUserHtml } from "@/server/utils/sanitize-user-html";
 
 import {
   MAX_IMAGES,
-  MAX_TEXT_HTML_LENGTH,
+  MAX_DESCRIPTION_HTML_LENGTH,
   MAX_VIDEOS,
-  MYSQL_MAX_VARCHAR_LENGTH,
 } from "@/data/custom-wishlist";
 
-import { getEntityStatus } from "@/utils/entity-helpers";
 import { notEmpty } from "@/utils/helpers";
 import { parseVideoUrl, validateNormalizedVideoUrl } from "@/utils/video-urls";
 
@@ -81,6 +79,10 @@ const selectPublic = PublicCustomWishlistItemFields.reduce(
   {} as { [K in (typeof PublicCustomWishlistItemFields)[number]]: true },
 );
 
+const whereActivated = {
+  activatedAt: { gte: prisma.customWishlistItem.fields.updatedAt },
+};
+
 function getItemFilter(filter: "pending" | "active" | "completed") {
   return filter === "pending"
     ? { publishedAt: null }
@@ -136,53 +138,33 @@ const attachmentsSchema = z
     },
   );
 
-export type ShowAndTellSubmitInput = z.infer<
-  typeof showAndTellSharedInputSchema
+export type CustomWishlistItemSubmitInput = z.infer<
+  typeof customWishlistItemSharedInputSchema
 >;
-const showAndTellSharedInputSchema = z.object({
-  displayName: z.string().max(100),
+const customWishlistItemSharedInputSchema = z.object({
   title: z.string().max(100),
-  text: z.string().max(MAX_TEXT_HTML_LENGTH),
+  description: z.string().max(MAX_DESCRIPTION_HTML_LENGTH),
   attachments: attachmentsSchema,
-  volunteeringMinutes: z.number().int().positive().nullable(),
-  location: z.string().max(MYSQL_MAX_VARCHAR_LENGTH).nullable(),
-  longitude: z.number().nullable(),
-  latitude: z.number().nullable(),
-  dominantColor: z
-    .string()
-    .regex(/^\d{1,3},\d{1,3},\d{1,3}$/)
-    .refine((val) => val.split(",").every((num) => Number(num) < 256))
-    .nullable(),
-  pronouns: z
-    .string()
-    .trim()
-    .max(25)
-    .nullable()
-    .transform((val) => (val === "" ? null : val)),
+  endsAt: z.iso.datetime().nullable(),
+  goal: z.number().min(100).max(5000000),
 });
 
-export const showAndTellCreateInputSchema = showAndTellSharedInputSchema;
+export const customWishlistItemCreateInputSchema =
+  customWishlistItemSharedInputSchema;
 
-export const showAndTellUpdateInputSchema = showAndTellSharedInputSchema.and(
-  z.object({
-    id: z.cuid(),
-  }),
-);
+export const customWishlistItemUpdateInputSchema =
+  customWishlistItemSharedInputSchema.and(
+    z.object({
+      id: z.cuid2(),
+    }),
+  );
 
-export const showAndTellReviewInputSchema = showAndTellUpdateInputSchema.and(
-  z.object({
-    notePrivate: z.string().nullable(),
-    notePublic: z.string().nullable(),
-  }),
-);
-
-export type ShowAndTellUpdateInput =
-  | z.infer<typeof showAndTellUpdateInputSchema>
-  | z.infer<typeof showAndTellReviewInputSchema>;
+export type CustomWishlistItemUpdateInput = z.infer<
+  typeof customWishlistItemUpdateInputSchema
+>;
 
 const revalidateCache = (res: NextApiResponse) => {
-  res.revalidate("/show-and-tell");
-  res.revalidate("/show-and-tell/map");
+  res.revalidate("/custom-wishlist");
 };
 
 function createVideoAttachment({
@@ -202,7 +184,7 @@ function createVideoAttachment({
         description: "",
       },
     },
-  } as const satisfies ShowAndTellEntryAttachmentCreateWithoutEntryInput;
+  } as const satisfies CustomWishlistItemAttachmentCreateWithoutItemInput;
 }
 
 async function createOrUpdateImageAttachment({
@@ -220,7 +202,7 @@ async function createOrUpdateImageAttachment({
     return {
       attachmentType: "image",
       imageAttachment: { connect: { id } },
-    } as const satisfies ShowAndTellEntryAttachmentCreateWithoutEntryInput;
+    } as const satisfies CustomWishlistItemAttachmentCreateWithoutItemInput;
   }
 
   const { error, metaData } = await checkAndFixUploadedImageFileStorageObject(
@@ -244,16 +226,14 @@ async function createOrUpdateImageAttachment({
   return {
     attachmentType: "image",
     imageAttachment: { connect: { id: imageAttachment.id } },
-  } as const satisfies ShowAndTellEntryAttachmentCreateWithoutEntryInput;
+  } as const satisfies CustomWishlistItemAttachmentCreateWithoutItemInput;
 }
 
-export async function createPost(
+export async function createItem(
   res: NextApiResponse,
-  input: ShowAndTellSubmitInput,
-  authorUserId?: string,
-  importAt?: Date,
+  input: CustomWishlistItemSubmitInput,
 ) {
-  const text = sanitizeUserHtml(input.text);
+  const description = sanitizeUserHtml(input.description);
 
   const processedAttachments = await Promise.all(
     input.attachments.map((attachment) => {
@@ -280,195 +260,105 @@ export async function createPost(
     }),
   ).then((results) => results.map((res, idx) => ({ ...res, order: idx })));
 
-  const result = await prisma.showAndTellEntry.create({
+  const result = await prisma.customWishlistItem.create({
     data: {
-      ...(importAt
-        ? {
-            createdAt: importAt,
-            updatedAt: importAt,
-            approvedAt: importAt,
-          }
-        : {}),
-      user: authorUserId ? { connect: { id: authorUserId } } : undefined,
-      displayName: input.displayName,
-      pronouns: input.pronouns,
       title: input.title,
-      text,
-      volunteeringMinutes: input.volunteeringMinutes,
+      description,
       attachments: { create: processedAttachments },
-      location: input.location,
-      longitude: input.longitude,
-      latitude: input.latitude,
-      dominantColor: input.dominantColor,
+      endsAt: input.endsAt,
+      goal: input.goal,
     },
   });
   revalidateCache(res);
   return result;
 }
 
-export async function getPublicPostById(id: string) {
-  return prisma.showAndTellEntry.findFirst({
+export async function getPublicItemById(id: string) {
+  return prisma.customWishlistItem.findFirst({
     select: {
       ...selectPublic,
       attachments: withAttachments.include.attachments,
     },
     where: {
-      ...whereApproved,
+      ...whereActivated,
       id,
     },
   });
 }
 
-export async function getPublicPosts({
+export async function getPublicItems({
   take,
   cursor,
 }: {
   take?: number;
   cursor?: string;
 } = {}) {
-  return prisma.showAndTellEntry.findMany({
-    where: getPostFilter("approved"),
+  return prisma.customWishlistItem.findMany({
+    where: getItemFilter("active"),
     select: {
       ...selectPublic,
       attachments: withAttachments.include.attachments,
     },
-    orderBy: [...postOrderBy],
+    orderBy: [...itemOrderBy],
     cursor: cursor ? { id: cursor } : undefined,
     take,
   });
-}
-
-export async function getUserPosts(authorUserId: string, postId?: string) {
-  return prisma.showAndTellEntry.findMany({
-    select: {
-      ...selectOwn,
-      attachments: withAttachments.include.attachments,
-    },
-    where: {
-      userId: authorUserId,
-      id: postId,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-}
-
-export async function getUserPost(authorUserId: string, postId: string) {
-  return getUserPosts(authorUserId, postId).then((posts) => posts[0] ?? null);
-}
-
-export async function getPostsCount() {
-  return prisma.showAndTellEntry.count({
-    where: getPostFilter("approved"),
-  });
-}
-
-export async function getUsersCount() {
-  const [countWithUserId, countWithoutUserId] = await Promise.all([
-    prisma.showAndTellEntry.findMany({
-      select: { id: true },
-      where: {
-        userId: {
-          not: null,
-        },
-        AND: getPostFilter("approved"),
-      },
-      distinct: ["userId"],
-    }),
-    prisma.showAndTellEntry.findMany({
-      select: { id: true },
-      where: {
-        userId: null,
-        AND: getPostFilter("approved"),
-      },
-      distinct: ["displayName"],
-    }),
-  ] as const);
-
-  return countWithUserId.length + countWithoutUserId.length;
-}
-
-export async function getVolunteeringMinutes({
-  start,
-  end,
-}: { start?: Date; end?: Date } = {}) {
-  const res = await prisma.showAndTellEntry.aggregate({
-    _sum: { volunteeringMinutes: true },
-    where: {
-      AND: [
-        getPostFilter("approved"),
-        start && { createdAt: { gte: start } },
-        end && { createdAt: { lt: end } },
-      ].filter(notEmpty),
-    },
-  });
-
-  return res._sum.volunteeringMinutes ?? 0;
 }
 
 export async function getAdminPosts({
   take,
   cursor,
-  filter = "approved",
+  filter = "active",
 }: {
   take?: number;
   cursor?: string;
-  filter?: "approved" | "pendingApproval";
+  filter?: "pending" | "active" | "completed";
 } = {}) {
-  return prisma.showAndTellEntry.findMany({
-    where: getPostFilter(filter),
-    orderBy: [...postOrderBy],
-    include: { user: true },
+  return prisma.customWishlistItem.findMany({
+    where: getItemFilter(filter),
+    orderBy: [...itemOrderBy],
     cursor: cursor ? { id: cursor } : undefined,
     take,
   });
 }
 
-export async function getAdminPost(id: string, authorUserId?: string) {
-  return prisma.showAndTellEntry.findFirst({
+export async function getAdminItem(id: string) {
+  return prisma.customWishlistItem.findFirst({
     include: {
       ...withAttachments.include,
-      user: true,
     },
     where: {
-      userId: authorUserId,
       id,
     },
   });
 }
 
-export async function updatePost(
+export async function updateItem(
   res: NextApiResponse,
-  input: ShowAndTellUpdateInput,
-  authorUserId?: string,
-  keepApproved?: boolean,
+  input: CustomWishlistItemUpdateInput,
 ) {
-  // check that the user is the owner of the entry
-  // and that the entry has not been deleted
-  const existingEntry = await prisma.showAndTellEntry.findFirstOrThrow({
+  const existingItem = await prisma.customWishlistItem.findFirstOrThrow({
     where: {
       id: input.id,
-      userId: authorUserId,
     },
     include: { attachments: true },
   });
-  const existingEntryImageAttachmentIds = new Set(
-    existingEntry.attachments
+  const existingItemImageAttachmentIds = new Set(
+    existingItem.attachments
       .map((att) => att.imageAttachmentId)
       .filter((id) => id !== null),
   );
 
-  // Check that the only existing image attachments that are connected to the entry are updated
+  // Check that the only existing image attachments that are connected to the item are updated
   const processedAttachments = await Promise.all(
     input.attachments.map((attachment) => {
       if (attachment.type === "image") {
         if ("id" in attachment) {
-          if (!existingEntryImageAttachmentIds.has(attachment.id)) {
+          if (!existingItemImageAttachmentIds.has(attachment.id)) {
             throw new TRPCError({
               code: "BAD_REQUEST",
               message:
-                "Tried to update attachment that is not connected to the entry.",
+                "Tried to update attachment that is not connected to the item.",
             });
           }
         }
@@ -487,32 +377,19 @@ export async function updatePost(
     }),
   ).then((results) => results.map((res, idx) => ({ ...res, order: idx })));
 
-  const text = sanitizeUserHtml(input.text);
-  const notePrivate =
-    "notePrivate" in input
-      ? sanitizeUserHtml(input.notePrivate || "")
-      : undefined;
-  const notePublic =
-    "notePublic" in input
-      ? sanitizeUserHtml(input.notePublic || "")
-      : undefined;
+  const description = sanitizeUserHtml(input.description);
 
   const now = new Date();
-  const wasApproved = getEntityStatus(existingEntry) === "approved";
 
-  // TODO: Webhook? Notify mods?
-  await prisma.showAndTellEntry.update({
+  await prisma.customWishlistItem.update({
     where: {
       id: input.id,
     },
     data: {
-      displayName: input.displayName,
-      pronouns: input.pronouns,
       title: input.title,
-      text,
-      volunteeringMinutes: input.volunteeringMinutes,
+      description,
       updatedAt: now,
-      approvedAt: keepApproved && wasApproved ? now : existingEntry.approvedAt,
+      endsAt: input.endsAt || existingItem.endsAt,
       attachments: {
         deleteMany: {
           OR: [
@@ -533,185 +410,64 @@ export async function updatePost(
         create: processedAttachments.filter(
           (att) =>
             att.attachmentType !== "image" ||
-            !existingEntryImageAttachmentIds.has(
-              att.imageAttachment.connect.id,
-            ),
+            !existingItemImageAttachmentIds.has(att.imageAttachment.connect.id),
         ),
         // Ensure existing images have the correct order applied
         updateMany: processedAttachments
           .filter((att) => att.attachmentType === "image")
           .filter((att) =>
-            existingEntryImageAttachmentIds.has(att.imageAttachment.connect.id),
+            existingItemImageAttachmentIds.has(att.imageAttachment.connect.id),
           )
           .map((att) => ({
             where: { imageAttachmentId: att.imageAttachment.connect.id },
             data: { order: att.order },
           })),
       },
-      location: input.location,
-      longitude: input.longitude,
-      latitude: input.latitude,
-      notePrivate,
-      notePublic,
-      dominantColor: input.dominantColor,
     },
   });
   revalidateCache(res);
 }
 
-export async function approvePost(
-  res: NextApiResponse,
-  id: string,
-  authorUserId?: string,
-) {
-  await prisma.showAndTellEntry.updateMany({
-    where: { id, user: authorUserId ? { id: authorUserId } : undefined },
-    data: {
-      approvedAt: new Date(),
-    },
-  });
-  revalidateCache(res);
-}
-
-export async function removeApprovalFromPost(
-  res: NextApiResponse,
-  id: string,
-  authorUserId?: string,
-) {
-  await prisma.showAndTellEntry.updateMany({
-    where: { id, user: authorUserId ? { id: authorUserId } : undefined },
-    data: {
-      approvedAt: null,
-    },
-  });
-  revalidateCache(res);
-}
-
-export const markPostAsSeenModeSchema = z
-  .literal(["this", "thisAndOlder", "thisAndNewer"])
-  .default("this");
-
-export type MarkPostAsSeenMode = z.infer<typeof markPostAsSeenModeSchema>;
-
-export async function markPostAsSeen(
-  res: NextApiResponse,
-  id: string,
-  mode: MarkPostAsSeenMode = "this",
-) {
-  if (mode === "this") {
-    await prisma.showAndTellEntry.update({
-      where: { id },
-      data: {
-        seenOnStream: true,
-        seenOnStreamAt: new Date(),
-      },
-    });
-    revalidateCache(res);
-    return;
-  }
-
-  const entry = await prisma.showAndTellEntry.findUniqueOrThrow({
-    select: { approvedAt: true, createdAt: true },
-    where: { id },
-  });
-  if (!entry.approvedAt) return;
-
-  const ids = (
-    await prisma.showAndTellEntry.findMany({
-      select: { id: true },
-      where: {
-        AND: [
-          whereApproved,
-          {
-            createdAt:
-              mode === "thisAndNewer"
-                ? { gte: entry.createdAt }
-                : { lt: entry.createdAt },
-          },
-        ],
-      },
-    })
-  ).map((e) => e.id);
-  await prisma.showAndTellEntry.updateMany({
-    where: { id: { in: [id, ...ids] } },
-    data: {
-      seenOnStream: true,
-      seenOnStreamAt: new Date(),
-    },
-  });
-
-  revalidateCache(res);
-}
-
-export async function unmarkPostAsSeen(res: NextApiResponse, id: string) {
-  await prisma.showAndTellEntry.update({
+export async function activateItem(res: NextApiResponse, id: string) {
+  await prisma.customWishlistItem.updateMany({
     where: { id },
     data: {
-      seenOnStream: false,
-      seenOnStreamAt: null,
+      activatedAt: new Date(),
     },
   });
   revalidateCache(res);
 }
 
-export async function deletePost(
-  res: NextApiResponse,
-  id: string,
-  authorUserId?: string,
-) {
-  const post = await getAdminPost(id, authorUserId);
-  if (!post) return false;
+export async function completeItem(res: NextApiResponse, id: string) {
+  await prisma.customWishlistItem.updateMany({
+    where: { id },
+    data: {
+      completedAt: new Date(),
+    },
+  });
+  revalidateCache(res);
+}
+
+export async function deleteItem(res: NextApiResponse, id: string) {
+  const item = await getAdminItem(id);
+  if (!item) return false;
 
   await Promise.allSettled([
-    prisma.showAndTellEntry.delete({ where: { id: post.id } }),
+    prisma.customWishlistItem.delete({ where: { id: item.id } }),
     prisma.imageAttachment.deleteMany({
       where: {
         id: {
-          in: post.attachments.map((a) => a.imageAttachmentId).filter(notEmpty),
+          in: item.attachments.map((a) => a.imageAttachmentId).filter(notEmpty),
         },
       },
     }),
     prisma.linkAttachment.deleteMany({
       where: {
         id: {
-          in: post.attachments.map((a) => a.linkAttachmentId).filter(notEmpty),
+          in: item.attachments.map((a) => a.linkAttachmentId).filter(notEmpty),
         },
       },
     }),
   ]);
   revalidateCache(res);
-}
-
-export async function getPostsToShow() {
-  const postsToShow = await prisma.showAndTellEntry.count({
-    where: {
-      AND: [whereApproved, { seenOnStream: false }],
-    },
-  });
-
-  return postsToShow;
-}
-
-export type LocationFeature = {
-  id: string;
-  location: string;
-  latitude: number;
-  longitude: number;
-};
-
-export async function getMapFeatures() {
-  return (await prisma.showAndTellEntry.findMany({
-    where: {
-      ...whereApproved,
-      longitude: { not: null },
-      latitude: { not: null },
-    },
-    select: {
-      id: true,
-      location: true,
-      latitude: true,
-      longitude: true,
-    },
-    orderBy: { createdAt: "asc" },
-  })) as LocationFeature[];
 }
