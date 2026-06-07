@@ -6,21 +6,20 @@ import { getAdminSSP } from "@/server/utils/admin";
 import { permissions } from "@/data/permissions";
 
 import { AdminPageLayout } from "@/components/admin/AdminPageLayout";
-import { AdminCustomWishlistItemsPanel } from "@/components/admin/custom-wishlist/AdminCustomWishlistItems";
+import { Headline } from "@/components/admin/Headline";
+import { Panel } from "@/components/admin/Panel";
+import { CustomWishlistItemForm } from "@/components/admin/custom-wishlist/AdminCustomWishlistItemForm";
 import Meta from "@/components/content/Meta";
 
 export async function getServerSideProps(context: NextPageContext) {
   const session = await getSession(context);
-  const adminProps = await getAdminSSP(
-    context,
-    permissions.manageCustomWishlist,
-  );
+  const adminProps = await getAdminSSP(context, permissions.manageDonations);
   if (!adminProps) {
     return {
       redirect: {
         destination: session?.user?.id
           ? "/unauthorized"
-          : "/auth/signin?callbackUrl=/admin/custom-wishlist",
+          : "/auth/signin?callbackUrl=/admin/custom-wishlist/create",
         permanent: false,
       },
     };
@@ -29,20 +28,21 @@ export async function getServerSideProps(context: NextPageContext) {
   return { props: adminProps };
 }
 
-const AdminDonationItemsPage: NextPage<
+const AdminCreateCustomWishlistItemPage: NextPage<
   InferGetStaticPropsType<typeof getServerSideProps>
 > = ({ menuItems }) => {
   return (
     <>
-      <Meta title="Custom Wishlist | Admin" />
-      <AdminPageLayout
-        title="Custom Wishlist"
-        menuItems={menuItems}
-      >
-        <AdminCustomWishlistItemsPanel filter="all" />
+      <Meta title="Create Custom Wishlist Item | Admin" />
+
+      <AdminPageLayout title="Create Custom Wishlist Item" menuItems={menuItems}>
+        <Headline>Create custom wishlist item</Headline>
+
+        <Panel>
+          <CustomWishlistItemForm action="create" />
+        </Panel>
       </AdminPageLayout>
     </>
   );
 };
-
-export default AdminDonationItemsPage;
+export default AdminCreateCustomWishlistItemPage;

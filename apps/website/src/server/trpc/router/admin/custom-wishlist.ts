@@ -3,10 +3,13 @@ import { z } from "zod";
 
 import {
   createItem,
+  activateItem,
   deleteItem,
   getAdminItem,
   getAdminItems,
   updateItem,
+  customWishlistItemCreateInputSchema,
+  customWishlistItemUpdateInputSchema,
 } from "@/server/db/custom-wishlist";
 import {
   createCheckPermissionMiddleware,
@@ -27,6 +30,20 @@ export const adminCustomWishlistRouter = router({
   getItem: permittedProcedure
     .input(z.cuid())
     .query(({ input }) => getAdminItem(input)),
+
+  activate: permittedProcedure
+    .input(z.cuid())
+    .mutation(async ({ ctx, input }) => await activateItem(ctx.res, input)),
+
+  create: permittedProcedure
+    .input(customWishlistItemCreateInputSchema)
+    .mutation(async ({ ctx, input }) => await createItem(ctx.res, input)),
+
+  update: permittedProcedure
+    .input(customWishlistItemUpdateInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      await updateItem(ctx.res, input);
+    }),
 
   delete: permittedProcedure
     .input(z.cuid())
@@ -49,7 +66,7 @@ export const adminCustomWishlistRouter = router({
   getItems: permittedProcedure
     .input(
       z.object({
-        filter: z.literal(["active", "completed", "pending"]).optional(),
+        filter: z.literal(["active", "completed", "pending", "all"]).optional(),
         limit: z.number().min(1).max(100).nullish(),
         cursor: z.cuid().nullish(),
       }),

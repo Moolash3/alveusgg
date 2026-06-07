@@ -67,6 +67,11 @@ const menuItems = [
     href: "/admin/twitch",
     permission: permissions.manageTwitchApi,
   },
+  {
+    label: "Custom Wishlist",
+    href: "/admin/custom-wishlist",
+    permission: permissions.manageDonations,
+  },
 ];
 
 export async function getAdminSSP(

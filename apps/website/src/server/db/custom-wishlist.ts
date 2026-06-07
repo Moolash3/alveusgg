@@ -40,6 +40,10 @@ export type FullCustomWishlistItemAttachment = CustomWishlistItemAttachment & {
 export type CustomWishlistItemAttachments =
   Array<FullCustomWishlistItemAttachment>;
 
+export type CustomWishlistItemWithAttachments = CustomWishlistItemModel & {
+  attachments: CustomWishlistItemAttachments;
+};
+
 const PublicCustomWishlistItemFields = [
   "id",
   "title",
@@ -83,7 +87,8 @@ const whereActivated = {
   activatedAt: { gte: prisma.customWishlistItem.fields.updatedAt },
 };
 
-function getItemFilter(filter: "pending" | "active" | "completed") {
+function getItemFilter(filter: "pending" | "active" | "completed" | "all") {
+  if (filter == "all") return {};
   return filter === "pending"
     ? { publishedAt: null }
     : filter === "active"
@@ -305,14 +310,14 @@ export async function getPublicItems({
   });
 }
 
-export async function getAdminPosts({
+export async function getAdminItems({
   take,
   cursor,
   filter = "active",
 }: {
   take?: number;
   cursor?: string;
-  filter?: "pending" | "active" | "completed";
+  filter?: "pending" | "active" | "completed" | "all";
 } = {}) {
   return prisma.customWishlistItem.findMany({
     where: getItemFilter(filter),

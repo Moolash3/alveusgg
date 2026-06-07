@@ -5,14 +5,15 @@ import type { AppRouter } from "@/server/trpc/router/_app";
 
 import { trpc } from "@/utils/trpc";
 
-import { Button } from "@/components/shared/form/Button";
+import { Button, LinkButton } from "@/components/shared/form/Button";
 
 import IconLoading from "@/icons/IconLoading";
 
 import { Panel } from "../Panel";
+import { AdminCustomWishlistItem } from "./AdminCustomWishlistItem";
 
 type AdminCustomWishlistItemsPanelProps = {
-  filter: "pending" | "active" | "completed";
+  filter: "pending" | "active" | "completed" | "all";
 };
 
 type RouterOutput = inferRouterOutputs<AppRouter>;
@@ -26,6 +27,18 @@ export function AdminCustomWishlistItemsPanel({
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
     },
+  );
+
+  const activateItem = trpc.adminCustomWishlist.activate.useMutation({
+    onSettled: async () => {
+      await items.refetch();
+    },
+  });
+  const handleActivateItem = useCallback(
+    (item: Item) => {
+      activateItem.mutate(item.id);
+    },
+    [activateItem],
   );
 
   const deleteItem = trpc.adminCustomWishlist.delete.useMutation({
@@ -51,17 +64,17 @@ export function AdminCustomWishlistItemsPanel({
           <table className="w-full">
             <thead>
               <tr>
-                <th scope="col" className="text-left">
-                  Name
-                </th>
                 <th scope="col" className="w-3/5 text-left">
                   Title
                 </th>
                 <th scope="col" className="text-left">
-                  Created/Updated
+                  Status
                 </th>
                 <th scope="col" className="text-left">
-                  Seen
+                  Goal
+                </th>
+                <th scope="col" className="text-left">
+                  Created/Updated
                 </th>
                 <th scope="col" className="text-left">
                   Actions
@@ -74,7 +87,8 @@ export function AdminCustomWishlistItemsPanel({
                   {page.items.map((item: Item) => (
                     <AdminCustomWishlistItem
                       key={item.id}
-                      entry={item}
+                      item={item}
+                      activateItem={handleActivateItem}
                       deleteItem={handleDeleteItem}
                     />
                   ))}
@@ -102,6 +116,16 @@ export function AdminCustomWishlistItemsPanel({
           </div>
         </>
       )}
+
+        <div className="mt-4 flex">
+          <LinkButton
+            href="/admin/custom-wishlist/create"
+            size="small"
+            width="auto"
+          >
+            + Create wishlist item
+          </LinkButton>
+        </div>
     </Panel>
   );
 }
