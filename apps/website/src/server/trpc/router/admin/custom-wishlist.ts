@@ -3,8 +3,10 @@ import { z } from "zod";
 
 import {
   createItem,
+  deactivateItem,
   activateItem,
   deleteItem,
+  completeItem,
   getAdminItem,
   getAdminItems,
   updateItem,
@@ -31,9 +33,17 @@ export const adminCustomWishlistRouter = router({
     .input(z.cuid())
     .query(({ input }) => getAdminItem(input)),
 
+  deactivate: permittedProcedure
+    .input(z.cuid())
+    .mutation(async ({ ctx, input }) => await deactivateItem(ctx.res, input)),
+
   activate: permittedProcedure
     .input(z.cuid())
     .mutation(async ({ ctx, input }) => await activateItem(ctx.res, input)),
+
+  complete: permittedProcedure
+    .input(z.cuid())
+    .mutation(async ({ ctx, input }) => await completeItem(ctx.res, input)),
 
   create: permittedProcedure
     .input(customWishlistItemCreateInputSchema)
@@ -66,7 +76,9 @@ export const adminCustomWishlistRouter = router({
   getItems: permittedProcedure
     .input(
       z.object({
-        filter: z.literal(["active", "completed", "pending", "all"]).optional(),
+        filter: z
+          .literal(["active", "completed", "inactive", "all"])
+          .optional(),
         limit: z.number().min(1).max(100).nullish(),
         cursor: z.cuid().nullish(),
       }),

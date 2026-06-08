@@ -44,6 +44,11 @@ export type NumberFieldProps = AriaNumberFieldProps & {
   showButtons?: boolean;
   showResetButton?: boolean;
   locale?: string;
+  formatOptions?: {
+    style?: string;
+    currency?: string;
+    currencyDisplay?: string;
+  };
 };
 
 export function NumberField(props: NumberFieldProps) {

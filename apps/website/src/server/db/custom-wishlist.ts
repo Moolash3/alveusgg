@@ -87,12 +87,12 @@ const whereActivated = {
   activatedAt: { gte: prisma.customWishlistItem.fields.updatedAt },
 };
 
-function getItemFilter(filter: "pending" | "active" | "completed" | "all") {
+function getItemFilter(filter: "inactive" | "active" | "completed" | "all") {
   if (filter == "all") return {};
-  return filter === "pending"
-    ? { publishedAt: null }
+  return filter === "inactive"
+    ? { activatedAt: null }
     : filter === "active"
-      ? { publishedAt: { gte: prisma.customWishlistItem.fields.updatedAt } }
+      ? { activatedAt: { gte: prisma.customWishlistItem.fields.updatedAt } }
       : filter === "completed"
         ? { completedAt: { gte: prisma.customWishlistItem.fields.updatedAt } }
         : {};
@@ -151,7 +151,7 @@ const customWishlistItemSharedInputSchema = z.object({
   description: z.string().max(MAX_DESCRIPTION_HTML_LENGTH),
   attachments: attachmentsSchema,
   endsAt: z.iso.datetime().nullable(),
-  goal: z.number().min(100).max(5000000),
+  goal: z.number().min(1).max(50000000),
 });
 
 export const customWishlistItemCreateInputSchema =
@@ -317,7 +317,7 @@ export async function getAdminItems({
 }: {
   take?: number;
   cursor?: string;
-  filter?: "pending" | "active" | "completed" | "all";
+  filter?: "inactive" | "active" | "completed" | "all";
 } = {}) {
   return prisma.customWishlistItem.findMany({
     where: getItemFilter(filter),
@@ -433,6 +433,16 @@ export async function updateItem(
   revalidateCache(res);
 }
 
+export async function deactivateItem(res: NextApiResponse, id: string) {
+  await prisma.customWishlistItem.updateMany({
+    where: { id },
+    data: {
+      activatedAt: null,
+    },
+  });
+  revalidateCache(res);
+}
+
 export async function activateItem(res: NextApiResponse, id: string) {
   await prisma.customWishlistItem.updateMany({
     where: { id },
@@ -456,6 +466,18 @@ export async function completeItem(res: NextApiResponse, id: string) {
 export async function deleteItem(res: NextApiResponse, id: string) {
   const item = await getAdminItem(id);
   if (!item) return false;
+  const donationCount = await prisma.donation.count({
+    where: {
+      customWishlistItemId: item.id,
+    },
+  });
+
+  if (donationCount > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Cannot delete items with donations",
+    });
+  }
 
   await Promise.allSettled([
     prisma.customWishlistItem.delete({ where: { id: item.id } }),

@@ -10,11 +10,16 @@ import {
 
 import IconPencil from "@/icons/IconPencil";
 import IconPlus from "@/icons/IconPlus";
+import IconMinus from "@/icons/IconMinus";
 import IconTrash from "@/icons/IconTrash";
+import IconDollar from "@/icons/IconDollar";
+import IconCheck from "@/icons/IconCheck";
 
 type AdminCustomWishlistItemProps = {
   item: CustomWishlistItem;
+  deactivateItem: (item: CustomWishlistItem) => void;
   activateItem: (item: CustomWishlistItem) => void;
+  completeItem: (item: CustomWishlistItem) => void;
   deleteItem: (item: CustomWishlistItem) => void;
 };
 
@@ -22,12 +27,33 @@ const cellClasses = "p-1 md:p-2 align-top tabular-nums";
 
 export function AdminCustomWishlistItem({
   item,
+  deactivateItem,
   activateItem,
+  completeItem,
   deleteItem,
 }: AdminCustomWishlistItemProps) {
+  const currencyFormatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    unitDisplay: "narrow",
+    currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+
   return (
     <tr className="border-t border-gray-800">
       <td className={`${cellClasses} font-semibold`}>{item.title}</td>
+      <td className={`${cellClasses} font-semibold`}>
+        {item.completedAt
+          ? "Completed"
+          : item.activatedAt
+            ? "Active"
+            : "Inactive"}
+      </td>
+      <td className={`${cellClasses} font-semibold`}>
+        {currencyFormatter.format(Number(item.goal))}
+      </td>
       <td className={`${cellClasses} whitespace-nowrap`}>
         <DateTime date={item.createdAt} format={{ time: "minutes" }} />
         <br />
@@ -35,43 +61,71 @@ export function AdminCustomWishlistItem({
           <DateTime date={item.updatedAt} format={{ time: "minutes" }} />
         )}
       </td>
-      <td className={`${cellClasses} font-semibold`}>{item.completedAt ? "Completed" : item.activatedAt ? "Active" : "Pending"}</td>
-      <td className={`${cellClasses} font-semibold`}>{item.goal.toString()}</td>
       <td className={`${cellClasses} whitespace-nowrap`}>
-        {!item.activatedAt && !item.completedAt && (
-          <div className="flex flex-col gap-1">
-            <Button
-              size="small"
-              className={secondaryButtonClasses}
-              onClick={() => activateItem(item)}
-              title="Activate this item"
-            >
-              <IconPlus className="size-5" /> Seen
-            </Button>
-          </div>
-        )}
-      </td>
-      <td className={`${cellClasses} whitespace-nowrap`}>
-          <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1">
+          {!item.activatedAt && !item.completedAt && (
+            <div className="flex flex-col gap-1">
+              <Button
+                size="small"
+                className={secondaryButtonClasses}
+                onClick={() => activateItem(item)}
+                title="Activate this item"
+              >
+                <IconPlus className="size-5" /> Activate
+              </Button>
+            </div>
+          )}
+          {item.activatedAt && !item.completedAt && (
+            <>
+              <Button
+                size="small"
+                className={secondaryButtonClasses}
+                onClick={() => deactivateItem(item)}
+                title="Deactivate this item"
+              >
+                <IconMinus className="size-5" /> Deactivate
+              </Button>
+              <Button
+                size="small"
+                className={secondaryButtonClasses}
+                onClick={() => completeItem(item)}
+                title="Complete this item"
+              >
+                <IconCheck className="size-5" /> Complete
+              </Button>
+            </>
+          )}
+          {!item.completedAt && (
             <Button
               size="small"
               className={dangerButtonClasses}
               onClick={() => deleteItem(item)}
               title="Delete this item"
             >
-              <IconTrash className="size-5" /> Seen
+              <IconTrash className="size-5" /> Delete
             </Button>
-          </div>
+          )}
+        </div>
       </td>
-      <td className={`${cellClasses} flex flex-col gap-1`}>
-        <LinkButton
-          size="small"
-          href={`/admin/custom-wishlist/${item.id}`}
-        >
-          <IconPencil className="size-5" />
-          Edit
-        </LinkButton>
-      </td>
+      {!item.completedAt && (
+        <td className={`${cellClasses} flex flex-col gap-1`}>
+          <LinkButton size="small" href={`/admin/custom-wishlist/${item.id}`}>
+            <IconPencil className="size-5" />
+            Edit
+          </LinkButton>
+        </td>
+      )}
+      {(item.activatedAt || item.completedAt) && (
+        <td className={`${cellClasses} flex flex-col gap-1`}>
+          <LinkButton
+            size="small"
+            href={`/admin/custom-wishlist/${item.id}/donations`}
+          >
+            <IconDollar className="size-5" />
+            Donations
+          </LinkButton>
+        </td>
+      )}
     </tr>
   );
 }

@@ -4,7 +4,6 @@ import {
   DisclosurePanel,
 } from "@headlessui/react";
 import Image from "next/image";
-import { useRouter } from "next/router";
 import {
   type ComponentProps,
   type FormEvent,
@@ -19,7 +18,7 @@ import type { ImageAttachment, CustomWishlistItem } from "@alveusgg/database";
 import type {
   CustomWishlistItemWithAttachments,
   CustomWishlistItemAttachments,
-  CustomWishlistItemSubmitInput
+  CustomWishlistItemSubmitInput,
 } from "@/server/db/custom-wishlist";
 
 import {
@@ -64,6 +63,7 @@ import {
   fileReducer,
 } from "../../shared/form/UploadAttachmentsField";
 import { VideoLinksField } from "../../shared/form/VideoLinksField";
+import { NumberField } from "../../shared/form/NumberField";
 
 type CustomWishlistItemFormProps = {
   className?: string;
@@ -164,8 +164,8 @@ function ImageAttachment({
                 <span className="sr-only">Alt text</span>
                 <p className="text-xs text-gray-600 italic">
                   Use this text to describe the image for visually impaired
-                  users. This text is NOT visible on the item page, but
-                  will be read by screen readers and other accessibility tools.
+                  users. This text is NOT visible on the item page, but will be
+                  read by screen readers and other accessibility tools.
                 </p>
               </>
             }
@@ -206,18 +206,15 @@ const mapSavedAttachments = (
 
 export function CustomWishlistItemForm({
   className,
-  isAnonymous = false,
   action = "create",
   item,
   onUpdate,
   onUnsavedChangesRef,
 }: CustomWishlistItemFormProps) {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
   const create = trpc.adminCustomWishlist.create.useMutation();
   const update = trpc.adminCustomWishlist.update.useMutation();
   const isLoading = create.isPending || update.isPending;
@@ -348,8 +345,13 @@ export function CustomWishlistItemForm({
     const data: CustomWishlistItemSubmitInput = {
       title: formData.get("title") as string,
       description: formData.get("description") as string,
-      goal: formData.get("goal") as unknown as number,
-      endsAt: formData.get("endsAt") as string || null,
+      goal: Number(
+        formData
+          .get("goal")
+          ?.toString()
+          .replaceAll(/[$,&]+/g, ""),
+      ),
+      endsAt: (formData.get("endsAt") as string) || null,
       attachments: [],
     };
 
@@ -392,14 +394,7 @@ export function CustomWishlistItemForm({
       create.mutate(data, {
         onSuccess: () => {
           resetChanges();
-          if (isAnonymous) {
-            // We can't redirect to the entry because the user is anonymous
-            setIsSubmitted(true);
-            onUpdate?.();
-          } else {
-            // Redirect to my posts
-            router.push("/custom-wishlist/");
-          }
+          onUpdate?.();
         },
         onError: (err) => {
           setError(err.message);
@@ -431,18 +426,6 @@ export function CustomWishlistItemForm({
     setIsProcessing(false);
   };
 
-  if (isSubmitted) {
-    return (
-      <div className="my-5">
-        <MessageBox variant="success">
-          Your entry has been submitted. It will be reviewed by a moderator and
-          then published.
-        </MessageBox>
-      </div>
-    );
-  }
-
-
   const isMutationPending = update.isPending;
 
   return (
@@ -454,17 +437,11 @@ export function CustomWishlistItemForm({
       )}
       onSubmit={handleSubmit}
     >
-      {action === "update" && (
+      {action === "update" && item?.activatedAt && (
         <MessageBox variant="warning" className="my-4 flex items-center gap-2">
           <IconWarningTriangle className="size-6 text-yellow-900" />
-          You are modifying a previously approved post. Upon submitting your
-          edits, the post will be unpublished until the changes have been
-          reviewed and approved.
+          You are modifying an active item.
         </MessageBox>
-      )}
-      {error && <MessageBox variant="failure">{error}</MessageBox>}
-      {successMessage && (
-        <MessageBox variant="success">{successMessage}</MessageBox>
       )}
 
       <div className="flex flex-col gap-5 lg:flex-row lg:gap-20">
@@ -479,6 +456,21 @@ export function CustomWishlistItemForm({
               defaultValue={item?.title}
               placeholder="Name of the item or goal"
               onChange={markAsChanged}
+            />
+            <NumberField
+              label="Goal"
+              isRequired
+              minValue={1}
+              maxValue={50000000}
+              name="goal"
+              defaultValue={Number(item?.goal)}
+              placeholder="Amount of money to purchase or fund the item"
+              onChange={markAsChanged}
+              formatOptions={{
+                style: "currency",
+                currency: "USD",
+                currencyDisplay: "symbol",
+              }}
             />
             <RichTextField
               label="Content"
@@ -609,7 +601,9 @@ export function CustomWishlistItemForm({
               <IconLoading className="size-5" />
               Saving …
             </>
-          ) : "Save changes"}
+          ) : (
+            "Save changes"
+          )}
         </Button>
       </div>
 
