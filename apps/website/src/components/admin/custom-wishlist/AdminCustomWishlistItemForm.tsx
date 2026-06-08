@@ -45,6 +45,7 @@ import IconLoading from "@/icons/IconLoading";
 import IconTrash from "@/icons/IconTrash";
 import IconWarningTriangle from "@/icons/IconWarningTriangle";
 
+import { LocalDateTimeField } from "../..//shared/form/LocalDateTimeField";
 import Link from "../../content/Link";
 import { MessageBox } from "../../shared/MessageBox";
 import { ModalDialog } from "../../shared/ModalDialog";
@@ -478,6 +479,11 @@ export function CustomWishlistItemForm({
               defaultValue={item?.description}
               maxLength={getMaxTextLengthForCreatedAt(item?.createdAt)}
               onChange={markAsChanged}
+            />
+            <LocalDateTimeField
+              showResetButton
+              name="endsAt"
+              label="When the item will automatically end (Central Time)"
             />
           </Fieldset>
         </div>

@@ -44,24 +44,6 @@ export type CustomWishlistItemWithAttachments = CustomWishlistItemModel & {
   attachments: CustomWishlistItemAttachments;
 };
 
-const PublicCustomWishlistItemFields = [
-  "id",
-  "title",
-  "description",
-  "endsAt",
-  "goal",
-] as const satisfies (keyof CustomWishlistItemModel)[];
-
-export type PublicCustomWishlistItem = Pick<
-  CustomWishlistItemModel,
-  (typeof PublicCustomWishlistItemFields)[number]
->;
-
-export type PublicCustomWishlistItemWithAttachments =
-  PublicCustomWishlistItem & {
-    attachments: CustomWishlistItemAttachments;
-  };
-
 const withAttachments = {
   include: {
     attachments: {
@@ -77,11 +59,6 @@ const withAttachments = {
 } as const satisfies {
   include: { attachments: CustomWishlistItem$attachmentsArgs };
 };
-
-const selectPublic = PublicCustomWishlistItemFields.reduce(
-  (acc, field) => ({ ...acc, [field]: true }),
-  {} as { [K in (typeof PublicCustomWishlistItemFields)[number]]: true },
-);
 
 const whereActivated = {
   activatedAt: { gte: prisma.customWishlistItem.fields.updatedAt },
@@ -278,38 +255,6 @@ export async function createItem(
   return result;
 }
 
-export async function getPublicItemById(id: string) {
-  return prisma.customWishlistItem.findFirst({
-    select: {
-      ...selectPublic,
-      attachments: withAttachments.include.attachments,
-    },
-    where: {
-      ...whereActivated,
-      id,
-    },
-  });
-}
-
-export async function getPublicItems({
-  take,
-  cursor,
-}: {
-  take?: number;
-  cursor?: string;
-} = {}) {
-  return prisma.customWishlistItem.findMany({
-    where: getItemFilter("active"),
-    select: {
-      ...selectPublic,
-      attachments: withAttachments.include.attachments,
-    },
-    orderBy: [...itemOrderBy],
-    cursor: cursor ? { id: cursor } : undefined,
-    take,
-  });
-}
-
 export async function getAdminItems({
   take,
   cursor,
@@ -434,7 +379,7 @@ export async function updateItem(
 }
 
 export async function finalizeItem(res: NextApiResponse, id: string) {
-  await prisma.customWishlistItem.updateMany({
+  await prisma.customWishlistItem.update({
     where: { id },
     data: {
       seeOnStream: true,
@@ -445,7 +390,7 @@ export async function finalizeItem(res: NextApiResponse, id: string) {
 }
 
 export async function deactivateItem(res: NextApiResponse, id: string) {
-  await prisma.customWishlistItem.updateMany({
+  await prisma.customWishlistItem.update({
     where: { id },
     data: {
       activatedAt: null,
@@ -455,7 +400,16 @@ export async function deactivateItem(res: NextApiResponse, id: string) {
 }
 
 export async function activateItem(res: NextApiResponse, id: string) {
-  await prisma.customWishlistItem.updateMany({
+  const item = await getAdminItem(id);
+
+  if (item.seenOnStream) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Cannot activate a finalized item",
+    });
+  }
+
+  await prisma.customWishlistItem.update({
     where: { id },
     data: {
       activatedAt: new Date(),
@@ -465,7 +419,7 @@ export async function activateItem(res: NextApiResponse, id: string) {
 }
 
 export async function completeItem(res: NextApiResponse, id: string) {
-  await prisma.customWishlistItem.updateMany({
+  await prisma.customWishlistItem.update({
     where: { id },
     data: {
       completedAt: new Date(),

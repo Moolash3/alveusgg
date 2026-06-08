@@ -47,11 +47,13 @@ export function AdminCustomWishlistItem({
     <tr className="border-t border-gray-800">
       <td className={`${cellClasses} font-semibold`}>{item.title}</td>
       <td className={`${cellClasses} font-semibold`}>
-        {item.completedAt
-          ? "Completed"
-          : item.activatedAt
-            ? "Active"
-            : "Inactive"}
+        {item.completedAt && item.seenOnStream
+          ? "Finalized"
+          : item.completedAt
+            ? "Completed"
+            : item.activatedAt
+              ? "Active"
+              : "Inactive"}
       </td>
       <td className={`${cellClasses} font-semibold`}>
         {currencyFormatter.format(Number(item.goal))}
