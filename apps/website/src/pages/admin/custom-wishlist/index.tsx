@@ -53,6 +53,9 @@ const AdminDonationItemsPage: NextPage<
 
         <Headline>Active Items</Headline>
         <AdminCustomWishlistItemsPanel filter="active" />
+
+        <Headline>Finalized Items</Headline>
+        <AdminCustomWishlistItemsPanel filter="finalized" />
       </AdminPageLayout>
     </>
   );

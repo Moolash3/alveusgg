@@ -17,6 +17,7 @@ import IconCheck from "@/icons/IconCheck";
 
 type AdminCustomWishlistItemProps = {
   item: CustomWishlistItem;
+  finalizeItem: (item: CustomWishlistItem) => void;
   deactivateItem: (item: CustomWishlistItem) => void;
   activateItem: (item: CustomWishlistItem) => void;
   completeItem: (item: CustomWishlistItem) => void;
@@ -27,6 +28,7 @@ const cellClasses = "p-1 md:p-2 align-top tabular-nums";
 
 export function AdminCustomWishlistItem({
   item,
+  finalizeItem,
   deactivateItem,
   activateItem,
   completeItem,
@@ -94,6 +96,16 @@ export function AdminCustomWishlistItem({
                 <IconCheck className="size-5" /> Complete
               </Button>
             </>
+          )}
+          {item.completedAt && !item.seenOnStream && (
+            <Button
+              size="small"
+              className={secondaryButtonClasses}
+              onClick={() => finalizeItem(item)}
+              title="Finalize this item"
+            >
+              <IconTrash className="size-5" /> Finalize
+            </Button>
           )}
           {!item.completedAt && (
             <Button

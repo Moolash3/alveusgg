@@ -496,7 +496,7 @@ model Donation {
   customWishlistItem CustomWishlistItem @relation(fields: [customWishlistItemId], references: [id])
 
   @@index([receivedAt(sort: Desc)], name: "Donation_recent")
-  @@index([customWishlistItemId], name: "CustomWishlistItem_itemId")
+  @@index([customWishlistItemId, amount], name: "CustomWishlistItem_itemId")
 }
 
 model Pixel {
@@ -518,21 +518,24 @@ model Pixel {
 }
 
 model CustomWishlistItem {
-  id          String    @id @default(cuid())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now())
-  endsAt      DateTime?
-  activatedAt DateTime?
-  completedAt DateTime?
-  title       String
-  description String    @db.Text
-  goal        Decimal
+  id             String    @id @default(cuid())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now())
+  endsAt         DateTime?
+  activatedAt    DateTime?
+  completedAt    DateTime?
+  seenOnStreamAt DateTime?
+  seenOnStream   Boolean   @default(false)
+  title          String
+  description    String    @db.Text
+  goal           Decimal
 
   donations   Donation[]
   attachments CustomWishlistItemAttachment[]
 
   @@index([activatedAt, updatedAt], name: "CustomWishlistItem_active")
   @@index([completedAt, updatedAt], name: "CustomWishlistItem_completed")
+  @@index([seenOnStream, completedAt], name: "CustomWishlistItem_finalized")
 }
 
 model CustomWishlistItemAttachment {

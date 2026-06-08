@@ -87,15 +87,15 @@ const whereActivated = {
   activatedAt: { gte: prisma.customWishlistItem.fields.updatedAt },
 };
 
-function getItemFilter(filter: "inactive" | "active" | "completed" | "all") {
-  if (filter == "all") return {};
-  return filter === "inactive"
-    ? { activatedAt: null }
-    : filter === "active"
-      ? { activatedAt: { gte: prisma.customWishlistItem.fields.updatedAt } }
-      : filter === "completed"
-        ? { completedAt: { gte: prisma.customWishlistItem.fields.updatedAt } }
-        : {};
+function getItemFilter(
+  filter: "inactive" | "active" | "completed" | "finalized",
+) {
+  if (filter == "finalized") return { seenOnStream: true };
+  if (filter == "inactive") return { activatedAt: null };
+  if (filter == "active")
+    return { activatedAt: { gte: prisma.customWishlistItem.fields.updatedAt } };
+  if (filter == "completed")
+    return { completedAt: { gte: prisma.customWishlistItem.fields.updatedAt } };
 }
 
 const itemOrderBy = [{ endsAt: "asc" }, { updatedAt: "desc" }] as const;
@@ -317,7 +317,7 @@ export async function getAdminItems({
 }: {
   take?: number;
   cursor?: string;
-  filter?: "inactive" | "active" | "completed" | "all";
+  filter?: "inactive" | "active" | "completed" | "finalized";
 } = {}) {
   return prisma.customWishlistItem.findMany({
     where: getItemFilter(filter),
@@ -428,6 +428,17 @@ export async function updateItem(
             data: { order: att.order },
           })),
       },
+    },
+  });
+  revalidateCache(res);
+}
+
+export async function finalizeItem(res: NextApiResponse, id: string) {
+  await prisma.customWishlistItem.updateMany({
+    where: { id },
+    data: {
+      seeOnStream: true,
+      seeOnStreamAt: new Date(),
     },
   });
   revalidateCache(res);

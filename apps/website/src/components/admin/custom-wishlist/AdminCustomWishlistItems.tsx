@@ -13,7 +13,7 @@ import { Panel } from "../Panel";
 import { AdminCustomWishlistItem } from "./AdminCustomWishlistItem";
 
 type AdminCustomWishlistItemsPanelProps = {
-  filter: "inactive" | "active" | "completed" | "all";
+  filter: "inactive" | "active" | "completed" | "finalized";
 };
 
 type RouterOutput = inferRouterOutputs<AppRouter>;
@@ -27,6 +27,18 @@ export function AdminCustomWishlistItemsPanel({
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
     },
+  );
+
+  const finalizeItem = trpc.adminCustomWishlist.finalize.useMutation({
+    onSettled: async () => {
+      await items.refetch();
+    },
+  });
+  const handleFinalizeItem = useCallback(
+    (item: Item) => {
+      finalizeItem.mutate(item.id);
+    },
+    [finalizeItem],
   );
 
   const deactivateItem = trpc.adminCustomWishlist.deactivate.useMutation({
@@ -51,6 +63,18 @@ export function AdminCustomWishlistItemsPanel({
       activateItem.mutate(item.id);
     },
     [activateItem],
+  );
+
+  const completeItem = trpc.adminCustomWishlist.complete.useMutation({
+    onSettled: async () => {
+      await items.refetch();
+    },
+  });
+  const handleCompleteItem = useCallback(
+    (item: Item) => {
+      completeItem.mutate(item.id);
+    },
+    [completeItem],
   );
 
   const deleteItem = trpc.adminCustomWishlist.delete.useMutation({
@@ -100,7 +124,8 @@ export function AdminCustomWishlistItemsPanel({
                     <AdminCustomWishlistItem
                       key={item.id}
                       item={item}
-                      deactivateItem={handleDectivateItem}
+                      finalizeItem={handleFinalizeItem}
+                      deactivateItem={handleDeactivateItem}
                       activateItem={handleActivateItem}
                       completeItem={handleCompleteItem}
                       deleteItem={handleDeleteItem}
