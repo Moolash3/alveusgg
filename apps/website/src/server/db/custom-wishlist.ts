@@ -63,12 +63,7 @@ const withAttachments = {
 function getItemFilter(
   filter: "inactive" | "active" | "completed" | "finalized",
 ) {
-  if (filter == "finalized") return { seenOnStream: true };
-  if (filter == "inactive") return { activatedAt: null };
-  if (filter == "active")
-    return { activatedAt: { gte: prisma.customWishlistItem.fields.updatedAt } };
-  if (filter == "completed")
-    return { completedAt: { gte: prisma.customWishlistItem.fields.updatedAt } };
+  return { status: filter };
 }
 
 const itemOrderBy = [{ endsAt: "asc" }, { updatedAt: "desc" }] as const;
@@ -245,6 +240,7 @@ export async function createItem(
       attachments: { create: processedAttachments },
       endsAt: input.endsAt,
       goal: input.goal,
+      status: "inactive",
     },
   });
   revalidateCache(res);
@@ -269,7 +265,7 @@ export async function getAdminItems({
 }
 
 export async function getAdminItem(id: string) {
-  return prisma.customWishlistItem.findFirst({
+  return prisma.customWishlistItem.findUnique({
     include: {
       ...withAttachments.include,
     },
@@ -283,7 +279,7 @@ export async function updateItem(
   res: NextApiResponse,
   input: CustomWishlistItemUpdateInput,
 ) {
-  const existingItem = await prisma.customWishlistItem.findFirstOrThrow({
+  const existingItem = await prisma.customWishlistItem.findUniqueOrThrow({
     where: {
       id: input.id,
     },
@@ -378,7 +374,7 @@ export async function finalizeItem(res: NextApiResponse, id: string) {
   await prisma.customWishlistItem.update({
     where: { id },
     data: {
-      seeOnStream: true,
+      status: "finalized",
       seeOnStreamAt: new Date(),
     },
   });
@@ -389,6 +385,7 @@ export async function deactivateItem(res: NextApiResponse, id: string) {
   await prisma.customWishlistItem.update({
     where: { id },
     data: {
+      status: "inactive",
       activatedAt: null,
     },
   });
@@ -408,6 +405,7 @@ export async function activateItem(res: NextApiResponse, id: string) {
   await prisma.customWishlistItem.update({
     where: { id },
     data: {
+      status: "active",
       activatedAt: new Date(),
     },
   });
@@ -418,6 +416,7 @@ export async function completeItem(res: NextApiResponse, id: string) {
   await prisma.customWishlistItem.update({
     where: { id },
     data: {
+      status: "completed",
       completedAt: new Date(),
     },
   });
@@ -427,13 +426,13 @@ export async function completeItem(res: NextApiResponse, id: string) {
 export async function deleteItem(res: NextApiResponse, id: string) {
   const item = await getAdminItem(id);
   if (!item) return false;
-  const donationCount = await prisma.donation.count({
+  const donation = await prisma.donation.findFirst({
     where: {
       customWishlistItemId: item.id,
     },
   });
 
-  if (donationCount > 0) {
+  if (donation) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Cannot delete items with donations",
