@@ -60,10 +60,6 @@ const withAttachments = {
   include: { attachments: CustomWishlistItem$attachmentsArgs };
 };
 
-const whereActivated = {
-  activatedAt: { gte: prisma.customWishlistItem.fields.updatedAt },
-};
-
 function getItemFilter(
   filter: "inactive" | "active" | "completed" | "finalized",
 ) {
@@ -402,7 +398,7 @@ export async function deactivateItem(res: NextApiResponse, id: string) {
 export async function activateItem(res: NextApiResponse, id: string) {
   const item = await getAdminItem(id);
 
-  if (item.seenOnStream) {
+  if (item?.status === "finalized") {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Cannot activate a finalized item",
