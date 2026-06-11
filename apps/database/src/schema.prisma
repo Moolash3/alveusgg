@@ -533,7 +533,7 @@ model CustomWishlistItem {
   donations   Donation[]
   attachments CustomWishlistItemAttachment[]
 
-  @@index([status, endsAt], name: "CustomWishlistItem_status")
+  @@index([status, endsAt, updatedAt], name: "CustomWishlistItem_status")
 }
 
 model CustomWishlistItemAttachment {

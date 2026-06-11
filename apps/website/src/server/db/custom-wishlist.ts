@@ -61,12 +61,17 @@ const withAttachments = {
 };
 
 function getItemFilter(
-  filter: "inactive" | "active" | "completed" | "finalized",
+  filter: "all" | "inactive" | "active" | "completed" | "finalized",
 ) {
+  if (filter == "all") return {};
   return { status: filter };
 }
 
-const itemOrderBy = [{ endsAt: "asc" }, { updatedAt: "desc" }] as const;
+const itemOrderBy = [
+  { status: "desc" },
+  { endsAt: "asc" },
+  { updatedAt: "desc" },
+] as const;
 
 const imageBaseSchema = z.object({
   type: z.literal("image"),
@@ -254,7 +259,7 @@ export async function getAdminItems({
 }: {
   take?: number;
   cursor?: string;
-  filter?: "inactive" | "active" | "completed" | "finalized";
+  filter?: "all" | "inactive" | "active" | "completed" | "finalized";
 } = {}) {
   return prisma.customWishlistItem.findMany({
     where: getItemFilter(filter),

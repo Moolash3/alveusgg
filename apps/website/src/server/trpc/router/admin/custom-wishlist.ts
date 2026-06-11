@@ -82,7 +82,7 @@ export const adminCustomWishlistRouter = router({
     .input(
       z.object({
         filter: z
-          .literal(["active", "completed", "inactive", "finalized"])
+          .literal(["all", "active", "completed", "inactive", "finalized"])
           .optional(),
         limit: z.number().min(1).max(100).nullish(),
         cursor: z.cuid().nullish(),

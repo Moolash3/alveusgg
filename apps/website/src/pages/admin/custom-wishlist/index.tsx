@@ -45,17 +45,8 @@ const AdminDonationItemsPage: NextPage<
         >
           + Create wishlist item
         </LinkButton>
-        <Headline>Completed Items</Headline>
-        <AdminCustomWishlistItemsPanel filter="completed" />
-
-        <Headline>Inactive Items</Headline>
-        <AdminCustomWishlistItemsPanel filter="inactive" />
-
-        <Headline>Active Items</Headline>
-        <AdminCustomWishlistItemsPanel filter="active" />
-
-        <Headline>Finalized Items</Headline>
-        <AdminCustomWishlistItemsPanel filter="finalized" />
+        <Headline>Items</Headline>
+        <AdminCustomWishlistItemsPanel />
       </AdminPageLayout>
     </>
   );
