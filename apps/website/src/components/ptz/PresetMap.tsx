@@ -59,7 +59,7 @@ const PresetMapNode = ({ data }: NodeProps<Node<PresetMapNodeData>>) => {
       </PresetCard>
     ),
     aria: `${data.name}: ${data.preset.description}`,
-    className: `${data.zen ? "z-100" : "z-90"}`,
+    className: data.zen ? "z-100" : "z-90",
     interactive: true,
   });
 
@@ -125,12 +125,12 @@ const PresetMapControls = () => {
 const PresetMap = ({
   camera,
   presets,
-  zen,
+  zen = false,
   filter,
 }: {
   camera: Camera;
   presets: readonly PresetEntry[];
-  zen: boolean;
+  zen?: boolean;
   filter?: (entry: PresetEntry) => boolean;
 }) => {
   const mapNodes = useMemo(() => {
