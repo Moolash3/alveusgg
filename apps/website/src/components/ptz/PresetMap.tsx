@@ -27,6 +27,7 @@ type PresetMapNodeData = {
   camera: Camera;
   name: string;
   preset: Preset;
+  zen: boolean;
   highlight?: boolean;
 };
 
@@ -58,7 +59,7 @@ const PresetMapNode = ({ data }: NodeProps<Node<PresetMapNodeData>>) => {
       </PresetCard>
     ),
     aria: `${data.name}: ${data.preset.description}`,
-    className: "z-90",
+    className: `${data.zen ? "z-100" : "z-90"}`,
     interactive: true,
   });
 
@@ -124,10 +125,12 @@ const PresetMapControls = () => {
 const PresetMap = ({
   camera,
   presets,
+  zen,
   filter,
 }: {
   camera: Camera;
   presets: readonly PresetEntry[];
+  zen: boolean;
   filter?: (entry: PresetEntry) => boolean;
 }) => {
   const mapNodes = useMemo(() => {
@@ -162,11 +165,12 @@ const PresetMap = ({
           camera,
           name,
           preset,
+          zen: zen,
           highlight: filter?.([name, preset]),
         },
       } satisfies Node<PresetMapNodeData>;
     });
-  }, [camera, filter, presets]);
+  }, [camera, filter, presets, zen]);
 
   const mapNodeTypes = useMemo(() => ({ preset: PresetMapNode }), []);
 

@@ -438,6 +438,7 @@ const AboutTechPresetsPage: NextPage = () => {
                   <PresetList
                     camera={selectedCamera}
                     zoom={subscription.isSuccess && !!subscription.data}
+                    zen={zen}
                   />
                 )}
               </div>
