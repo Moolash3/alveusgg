@@ -135,11 +135,9 @@ const PresetTools = ({
 const PresetList = ({
   camera,
   zoom = false,
-  zen = false,
 }: {
   camera: Camera;
   zoom?: boolean;
-  zen?: boolean;
 }) => {
   const [search, setSearch] = useState("");
   const [view, setView] = useLocalStorage<PresetView>(
@@ -217,7 +215,7 @@ const PresetList = ({
           <div className="pointer-events-none sticky bottom-0 z-10 -mt-2 h-16 mask-t-from-25% backdrop-blur-sm" />
         </div>
       ) : (
-        <PresetMap camera={camera} presets={sorted} filter={filter} zen={zen} />
+        <PresetMap camera={camera} presets={sorted} filter={filter} />
       )}
     </>
   );
